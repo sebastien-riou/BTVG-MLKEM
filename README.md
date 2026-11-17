@@ -53,6 +53,27 @@ Measurements made with crypto-benchmark on Cortex-M33 microcontrollers agree wit
 
 The spread is much smaller than for ML-DSA signing, where the slowest signature takes more than 20 times longer than the fastest. The purpose is the same: published numbers shall be the best case, the true average and a worst case of known probability, not whatever a few random keys happened to give.
 
+### Why not the CAVP test vectors
+The test vectors of NIST's validation program (CAVP, produced by the ACVP server) are the right tool to check conformance, and the generator of this repository checks itself against them. They are not suited to benchmarking:
+
+- **They are not one set.** The ACVP server draws new vectors for each validation session, and its published sample files come in several revisions (`FIPS203` and `FIPS203-tr1` for encapsulation and decapsulation, for instance). Two parties who used "the CAVP vectors" did not necessarily run the same inputs.
+- **The cost of their keys is left to chance.** Each parameter set has 25 keys for key generation, 25 other keys for encapsulation and 10 other keys for decapsulation. Keys needing an extra block in the `FIPS203` sample files:
+
+  | Keys with an extra block | ML-KEM-512 | ML-KEM-768 | ML-KEM-1024 |
+  |--------------------------|------------|------------|-------------|
+  | Key generation, 25 keys  | 3          | 1          | 5           |
+  | Encapsulation, 25 keys   | 3          | 4          | 4           |
+  | Decapsulation, 10 keys   | 0          | 1          | 1           |
+  | Expected among 25 keys   | 0.8        | 1.8        | 3.1         |
+  | Expected among 10 keys   | 0.3        | 0.7        | 1.3         |
+
+  In the `FIPS203-tr1` revision, the encapsulation keys give 1, 1 and 3. Whether the worst case measured for an operation includes the slow path depends on the operation and on the revision. No key of either revision has more than 2 extra blocks, when the worst case targeted here has 4 to 6.
+- **Each operation runs on its own keys**, and so does each outcome of decapsulation: its 5 valid and 5 modified ciphertexts come with 10 different keys. Comparing two operations, or the two outcomes, also compares keys.
+- **Nothing says what a test case is.** No cost, no probability, no role: a minimum, an average or a worst case measured with them describes the keys which happened to be drawn.
+- **They are large.** Encapsulation and decapsulation take complete keys and ciphertexts as inputs: 45 KB for ML-KEM-512 and 87 KB for ML-KEM-1024, before any expected output, against a few hundred bytes per test case here, expected outputs included.
+
+The average measured with them is close to the true one, since the spread is small. What they cannot give is the same inputs for everyone, a defined best case and a worst case of known probability.
+
 ## Goals
 
 1. **Comparable results.** One public set of test cases per parameter set (ML-KEM-512, ML-KEM-768, ML-KEM-1024), usable unchanged by software, hardware and mixed implementations. Each set has a unique name which includes a digest of its content, so that a result can state exactly which test vectors produced it. The name is short and safe to use in a file name.
