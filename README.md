@@ -3,7 +3,7 @@ Benchmarking Test Vectors Generator for ML-KEM (FIPS 203).
 
 This is the sibling of [BTVG-MLDSA](https://github.com/sebastien-riou/BTVG-MLDSA), which does the same for ML-DSA signing.
 
-**Status:** definition stage. This README states what the project shall deliver, nothing is implemented yet.
+**Status:** definition stage. This README states what the project shall deliver and [SPEC.md](SPEC.md) defines the test vectors precisely; the generator is being implemented.
 
 ## Why dedicated test vectors
 
@@ -31,7 +31,7 @@ An entry of Â needs 3 SHAKE128 blocks, or 4 with a probability of 0.83%. A 5th 
 |---------------------------|------------|------------|-------------|
 | Entries in Â (k²)         | 4          | 9          | 16          |
 | Blocks in the best case   | 12         | 27         | 48          |
-| P(no extra block)         | 96.7%      | 92.8%      | 87.5%       |
+| P(no extra block)         | 96.7%      | 92.7%      | 87.5%       |
 | P(at least 1 extra block) | 2^-4.9     | 2^-3.8     | 2^-3.0      |
 | P(at least 2)             | 2^-11.2    | 2^-8.7     | 2^-7.0      |
 | P(at least 3)             | 2^-18.7    | 2^-14.4    | 2^-11.7     |
@@ -89,7 +89,7 @@ The average measured with them is close to the true one, since the spread is sma
 
    Keys of equal cost are not equivalent for every implementation, as their slow entries fall on different rows and columns of Â. The rule which picks one of them is fixed in advance and published, for instance the first one in the search order, so that the selection is visibly not tuned.
 
-5. **Annotated test cases.** Each test case comes with its role (best case, worst case, average set), its occurrence probability, and the number of blocks and iterations of every entry of Â. The role lets a benchmark report the three separately. The per entry counts serve the implementations which generate several entries at once (4-way SHAKE128 for example) and do not pay the plain sum of the blocks: anyone can work out the cost for their own architecture and extrapolate. Apart from the role, the annotations are for the host and do not have to be embedded in a firmware.
+5. **Annotated test cases.** Each test case comes with its role (best case, worst case, average set), the number of blocks and iterations of every entry of Â, and, for the best and worst cases, their occurrence probability. The role lets a benchmark report the three separately. The per entry counts serve the implementations which generate several entries at once (4-way SHAKE128 for example) and do not pay the plain sum of the blocks: anyone can work out the cost for their own architecture and extrapolate. Apart from the role, the annotations are for the host and do not have to be embedded in a firmware.
 
 6. **Small.** A few tens of keys per parameter set, so that a run is short enough to be part of the development loop, on a microcontroller as well as in an RTL simulation. The order makes any prefix useful: the best case, the worst case, then the average set, so that a slow simulation can stop after the first test cases.
 
