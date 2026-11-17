@@ -49,13 +49,39 @@ def iterations_gt(n):
     return Fraction(num, 4096 ** (2 * n))
 
 
+# Every probability of an entry is an integer divided by 4096^(2 * MAX_ITERATIONS) = 2^SCALE_LOG2.
+# Distributions are kept as such integers ("scaled"): exact, and much faster than fractions.
+SCALE_LOG2 = 24 * MAX_ITERATIONS
+
+
+def scaled_float(num, log2_den):
+    """num / 2^log2_den as a float, for integers of any size."""
+    shift = max(num.bit_length() - 64, 0)
+    return math.ldexp(float(num >> shift), shift - log2_den)
+
+
+def scaled_log2(num, log2_den):
+    return math.log2(num) - log2_den
+
+
 @functools.lru_cache(maxsize=None)
-def entry_pmf():
-    """Exact distribution of the number of iterations of one entry, {n: probability}.
+def entry_pmf_scaled():
+    """Exact distribution of the number of iterations of one entry, {n: P(n) * 2^SCALE_LOG2}.
 
     Truncated at MAX_ITERATIONS: the missing mass is iterations_gt(MAX_ITERATIONS) = 2^-261.
     """
-    return {n: iterations_gt(n - 1) - iterations_gt(n) for n in range(N_COEFFS // 2, MAX_ITERATIONS + 1)}
+    out = {}
+    for n in range(N_COEFFS // 2, MAX_ITERATIONS + 1):
+        p = (iterations_gt(n - 1) - iterations_gt(n)) * (1 << SCALE_LOG2)
+        assert p.denominator == 1
+        out[n] = p.numerator
+    return out
+
+
+@functools.lru_cache(maxsize=None)
+def entry_pmf():
+    """Exact distribution of the number of iterations of one entry, {n: probability} (fractions)."""
+    return {n: Fraction(v, 1 << SCALE_LOG2) for n, v in entry_pmf_scaled().items()}
 
 
 @functools.lru_cache(maxsize=None)
@@ -73,31 +99,36 @@ def p_extra_block():
 
 
 @functools.lru_cache(maxsize=None)
-def entry_extra_dist():
-    """Exact distribution of the number of extra blocks of one entry, {x: probability}."""
+def entry_extra_scaled():
+    """Exact distribution of the number of extra blocks of one entry, {x: P(x) * 2^SCALE_LOG2}."""
     out = {}
-    for n, p in entry_pmf().items():
+    for n, v in entry_pmf_scaled().items():
         x = blocks(n) - MIN_BLOCKS
-        out[x] = out.get(x, 0) + p
+        out[x] = out.get(x, 0) + v
     return out
 
 
 @functools.lru_cache(maxsize=None)
-def key_extra_dist(k):
-    """Exact distribution of e, the number of extra blocks of a key, {e: probability}."""
-    dist = {0: Fraction(1)}
+def key_extra_scaled(k):
+    """Exact distribution of e, the number of extra blocks of a key, {e: P(e) * 2^(k*k*SCALE_LOG2)}."""
+    dist = {0: 1}
     for _ in range(k * k):
         nd = {}
         for e, p in dist.items():
-            for x, q in entry_extra_dist().items():
+            for x, q in entry_extra_scaled().items():
                 nd[e + x] = nd.get(e + x, 0) + p * q
         dist = nd
     return dist
 
 
+def key_extra_dist(k):
+    """Distribution of e, {e: probability} as floats (exact values: key_extra_scaled)."""
+    return {e: scaled_float(v, k * k * SCALE_LOG2) for e, v in key_extra_scaled(k).items()}
+
+
 def p_extra_ge(k, x):
     """Exact probability that a key needs at least x extra blocks."""
-    return sum((p for e, p in key_extra_dist(k).items() if e >= x), Fraction(0))
+    return Fraction(sum(v for e, v in key_extra_scaled(k).items() if e >= x), 1 << (k * k * SCALE_LOG2))
 
 
 @functools.lru_cache(maxsize=None)
@@ -183,7 +214,7 @@ def print_entry():
 def print_extra_blocks(xmax=8):
     print('\n| |' + '|'.join(f' ML-KEM-{p} ' for p in PSETS) + '|')
     print('|---|' + '---|' * len(PSETS))
-    print('| P(no extra block) |' + '|'.join(f' {float(key_extra_dist(K[p])[0]):.1%} ' for p in PSETS) + '|')
+    print('| P(no extra block) |' + '|'.join(f' {key_extra_dist(K[p])[0]:.1%} ' for p in PSETS) + '|')
     for x in range(1, xmax + 1):
         print(f'| P(at least {x}) |' + '|'.join(f' {prob_str(p_extra_ge(K[p], x))} ' for p in PSETS) + '|')
 
@@ -206,7 +237,13 @@ def print_rules(profile):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--profile', default='v1', choices=PROFILES)
+    parser.add_argument('--thresholds', type=int, choices=PSETS, metavar='PSET',
+                        help='print the thresholds of a search for the profile: --min-extra E --max-iters T')
     args = parser.parse_args()
+    if args.thresholds:
+        r = rules(args.thresholds, args.profile)
+        print(f"--min-extra {r['tiers'][0]['x']} --max-iters {r['best']['t']}")
+        raise SystemExit(0)
     print_entry()
     print_extra_blocks()
     print_rules(args.profile)

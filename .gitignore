@@ -1,6 +1,12 @@
 
 git_ignore
 
+# BTVG-MLKEM
+.venv/
+__pycache__/
+results/
+mlkem-search
+
 # Prerequisites
 *.d
 

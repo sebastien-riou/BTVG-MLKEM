@@ -3,7 +3,7 @@ Benchmarking Test Vectors Generator for ML-KEM (FIPS 203).
 
 This is the sibling of [BTVG-MLDSA](https://github.com/sebastien-riou/BTVG-MLDSA), which does the same for ML-DSA signing.
 
-**Status:** definition stage. This README states what the project shall deliver and [SPEC.md](SPEC.md) defines the test vectors precisely; the generator is being implemented.
+**Status:** the generator is implemented and tested; the sets of the rules v1 are not published yet, they need the production search. This README states what the project delivers and how to use it, [SPEC.md](SPEC.md) defines the test vectors precisely.
 
 ## Why dedicated test vectors
 
@@ -120,3 +120,53 @@ The average measured with them is close to the true one, since the spread is sma
 8. **Component level test vectors.** Nothing for K-PKE alone, the NTT, Keccak or the samplers.
 
 9. **A usable ML-KEM implementation.** The instrumented implementations in this repository are search tools: not constant time, not hardened, not meant to be used for anything else.
+
+## Setup
+
+Requirements: a Linux machine with `gcc`, Python 3 (tested with 3.14) and `pipenv`. Then:
+
+```
+./init
+```
+
+This creates the Python environment in `.venv/` (kyber-py, numpy, and pyslang for the tests), builds the search tool `mlkem-search` and runs the quick tests.
+
+## How to generate the test vectors
+
+The published sets are in `published/`. Generating them again, or rarer ones, takes four steps.
+
+1. **Search** the stream of keys for rare ones. The stream is cut in chunks of 2^20 keys:
+   ```
+   ./search PSET FIRST_CHUNK NCHUNKS JOBS
+   ```
+   For example `./search 768 0 4096 24` searches the first 2^32 keys of ML-KEM-768 with 24 processes. Each process writes a log in `results/`. The logs of other runs or other machines are merged by copying them into `results/`: a range searched twice must give the same log, and the chunks can be searched in any order. On a laptop CPU (Ryzen AI 9 HX PRO 370), a core searches 250k, 125k and 75k keys per second for ML-KEM-512, ML-KEM-768 and ML-KEM-1024. The worst case of tier 1 needs about 2^30 to 2^32 keys.
+2. **Check** the progress: `.venv/bin/python mlkem_logs.py results/` prints, for each rule, the number of keys searched without gap and the first key found, the missing chunks as commands to run, and the counts against their exact distribution.
+3. **Verify**: `.venv/bin/python mlkem-verify.py results/` recounts in Python, independently of the search tool, every chunk up to the last selected key, and requires the same counts and hits as the logs. A key missed by the search tool would otherwise make the selection wrong.
+4. **Generate**: `./generate` selects the test cases from `results/` and writes every format in `published/`. It refuses to run if a known answer test fails, and stops for a parameter set whose best case or worst case of tier 1 is not found yet.
+
+`./generate --check` rebuilds every published file from its record and compares it byte for byte: no search is needed to check a published set.
+
+`./testit` runs every test in about 3 minutes, including a short search with the `test` profile. `./testit --quick` takes seconds. `./release-check` runs before a release: it refuses uncommitted changes and a version already tagged.
+
+## How to use the test vectors
+
+A set is named like `mlkem768-n42-h1A2B3C4D`: parameter set, number of test cases, and the first bytes of the digest of its content. Its test cases come in this order: the best case, the worst cases (tier 1, then tier 2 if found), then the average set. Every format gives the role of each test case, so that the three can be reported separately: minimum on the best case, mean over the average set, maximum on the worst case with its probability.
+
+For each test case, a benchmark runs:
+1. `ML-KEM.KeyGen_internal(d, z)`, and checks the SHA-256 of `ek` and of `dk`;
+2. `ML-KEM.Encaps_internal(ek, m)`, and checks the SHA-256 of `c` and the shared secret `ss`;
+3. `ML-KEM.Decaps_internal(dk, c)`, and checks `ss`;
+4. `ML-KEM.Decaps_internal(dk, c')`, where `c'` is `c` with bit `reject_bit` flipped, and checks `ss_reject`.
+
+The formats:
+- **C**: `mlkem_test_vectors.h` defines the type `mlkem_test_case_t`, the same for every set; `<name>.c` defines `mlkem<pset>_test_vectors`. A test case takes 260 bytes: seeds, SHA-256 digests and shared secrets.
+- **JSON**: `<name>-keyGen.json` and `<name>-encapDecap.json` follow the layout of the ACVP files `internalProjection.json`, with complete keys and ciphertexts. Each test also carries its test case number, role and tier, and the key generation tests the cost annotations.
+- **Python**: `<name>.py` is the record of the set, a file of Python literals. [example.py](example.py) runs a set through kyber-py: replace its marked calls by those of the implementation to test.
+- **SystemVerilog**: `<name>.sv` is a package with the complete values, since a testbench cannot easily compute SHA-256. Byte i of a value is element `[i]` of its packed array.
+
+## How the test vectors are checked
+
+- The two ML-KEM implementations, [mlkem_fips203.py](mlkem_fips203.py) and kyber-py, pass the known answer tests of wolfSSL and of NIST's ACVP sample files, implicit rejection included, before anything is generated. Every value of every test case is computed by both and must be identical.
+- Both use Python's `hashlib` for SHA-3: they are independent for the arithmetic and the encodings only. `hashlib` is checked against NIST's SHA-3 answers, and the search tool, which has its own Keccak, against the same answers. The libraries benchmarked by crypto-benchmark check every digest again.
+- The cost of a key is counted three times: by the search tool in C, by a numpy counter, and by the SampleNTT of mlkem_fips203.py run on the key. They must agree.
+- The tests compare the logs of the search tool with those of the Python counter, check the merging of logs, confirm the selection by a brute-force scan, and read every output format back: the C files are compiled and give the digest of their name, the JSON files go through the same runner as NIST's, the SystemVerilog files are compiled by pyslang.

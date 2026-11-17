@@ -1,0 +1,10 @@
+#!/bin/bash
+# Build the search tool. CFLAGS can be overridden, e.g. CFLAGS="-O2" ./buildit for a binary
+# which runs on any x86-64 machine: the output of the tool does not depend on the flags.
+set -e
+cd "$(dirname "$0")"
+CC=${CC:-gcc}
+CFLAGS=${CFLAGS:--O3 -march=native}
+set -x
+$CC -std=c99 -Wall -Wextra -Wpedantic -Werror $CFLAGS -o mlkem-search mlkem-search.c
+./mlkem-search --selftest

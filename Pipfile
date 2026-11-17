@@ -1,0 +1,11 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+kyber-py = "==1.2.0"
+numpy = "*"
+
+[dev-packages]
+pyslang = "*"

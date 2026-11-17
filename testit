@@ -1,0 +1,54 @@
+#!/bin/bash
+# Runs every test.
+#   ./testit           about 3 minutes: includes a search with the test profile
+#   ./testit --quick   seconds: the test profile sets are rebuilt from their golden records
+set -e
+cd "$(dirname "$0")"
+ROOT=$(pwd)
+PY="$ROOT/.venv/bin/python"
+QUICK=
+[ "$1" = "--quick" ] && QUICK=--quick
+TMP=$(mktemp -d "${TMPDIR:-/tmp}/btvg-mlkem-testit.XXXXXX")
+trap 'rm -rf "$TMP"' EXIT
+[ -x mlkem-search ] || ./buildit
+
+echo "== known answer tests"
+$PY mlkem_kat.py
+if [ -z "$QUICK" ] && [ -d git_ignore/vectors ]; then
+    $PY mlkem_kat.py --full git_ignore/vectors
+fi
+
+echo "== counting of the cost of keys"
+$PY mlkem_count.py --selftest 300
+
+echo "== search tool"
+$PY test/test_search.py $QUICK
+
+echo "== sets of the test profile"
+mkdir -p "$TMP/out"
+cp test/golden/mlkem*.py "$TMP/out/"  # the generator must write the same records
+if [ -n "$QUICK" ]; then
+    $PY mlkem-tvgen.py --render test/golden/mlkem*.py --write "$TMP/out" > /dev/null
+else
+    for pset in 512 768 1024; do
+        # shellcheck disable=SC2046
+        RESULTS="$TMP/logs" ./search $pset 0 4 4 $($PY mlkem_stats.py --profile test --thresholds $pset) > /dev/null
+    done
+    $PY mlkem-verify.py --profile test "$TMP/logs"
+    $PY mlkem-tvgen.py --profile test --write "$TMP/out" "$TMP/logs"
+    $PY test/test_select.py "$TMP/logs"
+fi
+(cd "$TMP/out" && sha256sum --check --quiet "$ROOT/test/golden/SHA256SUMS")
+echo "files identical to the golden ones"
+$PY test/test_formats.py "$TMP/out"
+$PY mlkem-tvgen.py --check "$TMP/out"
+for rec in test/golden/mlkem*.py; do
+    $PY example.py "$rec"
+done
+
+if ls published/mlkem*.py > /dev/null 2>&1; then
+    echo "== published sets"
+    $PY mlkem-tvgen.py --check
+    $PY test/test_formats.py published
+fi
+echo "== all tests passed"

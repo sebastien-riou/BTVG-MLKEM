@@ -1,0 +1,44 @@
+#!/bin/bash
+# Search the stream of keys with JOBS processes in parallel.
+#   ./search PSET FIRST_CHUNK NCHUNKS JOBS [options of mlkem-search: --seed, --min-extra, --max-iters, --log2-chunk]
+# Each process takes a contiguous slice of the chunks and writes its own log in $RESULTS (default
+# results/). Logs of other runs or machines are merged by copying them in the same folder: see
+# mlkem_logs.py.
+set -e
+cd "$(dirname "$0")"
+if [ $# -lt 4 ]; then
+    sed -n 2,5p "$0" >&2
+    exit 1
+fi
+PSET=$1
+FIRST=$2
+NCHUNKS=$3
+JOBS=$4
+shift 4
+if [ "$JOBS" -lt 1 ] || [ "$NCHUNKS" -lt 1 ]; then
+    echo "JOBS and NCHUNKS must be at least 1" >&2
+    exit 1
+fi
+[ -x mlkem-search ] || ./buildit
+RESULTS=${RESULTS:-results}
+mkdir -p "$RESULTS"
+TAG=$(echo "$*" | tr -c 'a-zA-Z0-9\n' '_' | tr -s '_' | sed 's/^_//; s/_$//')
+pids=()
+for (( j = 0; j < JOBS; j++ )); do
+    start=$(( FIRST + NCHUNKS * j / JOBS ))
+    end=$(( FIRST + NCHUNKS * (j + 1) / JOBS ))
+    [ "$end" -gt "$start" ] || continue
+    log=$RESULTS/mlkem$PSET-c$start-$(( end - 1 ))${TAG:+-$TAG}.log
+    if [ -e "$log" ]; then
+        echo "$log exists, not overwritten" >&2
+        continue
+    fi
+    echo "./mlkem-search $PSET $start $(( end - start )) $* > $log"
+    ./mlkem-search "$PSET" "$start" $(( end - start )) "$@" > "$log" &
+    pids+=($!)
+done
+status=0
+for pid in "${pids[@]}"; do
+    wait "$pid" || status=1
+done
+exit $status

@@ -1,0 +1,6 @@
+#!/bin/bash
+# Removes build outputs. Keeps the search logs (results/) and the Python environment (.venv/).
+set -e
+cd "$(dirname "$0")"
+rm -f mlkem-search
+find . -path ./.venv -prune -o -type d -name __pycache__ -print0 | xargs -0 rm -rf

@@ -1,0 +1,13 @@
+#!/bin/bash
+# Generates the published test vectors from the search logs.
+#   ./generate [LOG_OR_DIR...]   default: results/
+#   ./generate --check           rebuild the published files from their records and compare them
+set -e
+cd "$(dirname "$0")"
+PY=.venv/bin/python
+if [ "$1" = "--check" ]; then
+    exec $PY mlkem-tvgen.py --check
+fi
+[ $# -gt 0 ] || set -- results
+$PY mlkem_logs.py "$@"
+exec $PY mlkem-tvgen.py "$@"

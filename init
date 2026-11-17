@@ -1,0 +1,11 @@
+#!/bin/bash
+# One-time setup: Python environment in .venv (pipenv), search tool, quick tests.
+set -e
+cd "$(dirname "$0")"
+if ! command -v pipenv > /dev/null; then
+    echo "pipenv is required, for example: python3 -m pip install --user pipenv" >&2
+    exit 1
+fi
+PIPENV_VENV_IN_PROJECT=1 pipenv install --dev
+./buildit
+./testit --quick
