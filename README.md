@@ -3,7 +3,7 @@ Benchmarking Test Vectors Generator for ML-KEM (FIPS 203).
 
 This is the sibling of [BTVG-MLDSA](https://github.com/sebastien-riou/BTVG-MLDSA), which does the same for ML-DSA signing.
 
-**Status:** the generator is implemented and tested; the sets of the rules v1 are not published yet, they need the production search. This README states what the project delivers and how to use it, [SPEC.md](SPEC.md) defines the test vectors precisely.
+**Status:** the sets of the rules v1 are published, with a worst case of tier 1 (probability about 2^-28); tier 2 (about 2^-35) needs a longer search. This README states what the project delivers and how to use it, [SPEC.md](SPEC.md) defines the test vectors precisely.
 
 ## Why dedicated test vectors
 
@@ -120,6 +120,20 @@ The average measured with them is close to the true one, since the spread is sma
 8. **Component level test vectors.** Nothing for K-PKE alone, the NTT, Keccak or the samplers.
 
 9. **A usable ML-KEM implementation.** The instrumented implementations in this repository are search tools: not constant time, not hardened, not meant to be used for anything else.
+
+## Published sets
+
+In [published/](published/), made with the rules v1 and the seed `0000000000000000` from a search of 2^31 keys per parameter set:
+
+| Set | Best case | Worst case, tier 1 | Average set |
+|-----|-----------|--------------------|-------------|
+| `mlkem512-n32-h2F3BDE49` | key 131449516, 584 iterations, 2^-28.18 | key 115564382, 4 extra blocks, 2^-27.63 | 30 keys from key 105 |
+| `mlkem768-n42-h523BACDC` | key 698949843, 1348 iterations, 2^-28.12 | key 79661803, 5 extra blocks, 2^-27.60 | 40 keys from key 522 |
+| `mlkem1024-n17-hFD044788` | key 474427888, 2426 iterations, 2^-28.37 | key 477098591, 6 extra blocks, 2^-28.58 | 15 keys from key 208 |
+
+The probability of the best case is that of a key with no extra block and at most as many iterations as the limit of the rules (585, 1349 and 2428); that of the worst case is the probability of at least as many extra blocks. Before publication, every chunk up to the last selected key was counted again by the Python counter, independently of the search tool, with identical results, and the counts of the 2^31 keys match their exact distribution.
+
+No key of tier 2 was found in 2^31 keys for ML-KEM-768 and ML-KEM-1024, as expected: it takes about 2^35. Once found, it adds one test case to each of these two sets, which therefore get new names.
 
 ## Setup
 
