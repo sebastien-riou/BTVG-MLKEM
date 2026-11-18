@@ -1,9 +1,9 @@
 name: on-release
 
-# On a pushed tag vX.Y.Z: sets up the repository as ./init does, runs every test (the published
-# sets are recomputed with both ML-KEM implementations, checked against their rules and read back
-# in every format), zips the content of published/ and creates the GitHub release with it.
-# The tag must match the file VERSION.
+# On a pushed tag vX.Y.Z (made by ./publish-release): sets up the repository as ./init does, runs
+# every test (the published sets are recomputed with both ML-KEM implementations, checked against
+# their rules and read back in every format), zips the content of published/ and creates the
+# GitHub release with it.
 
 on:
   push:

@@ -1,0 +1,41 @@
+#!/bin/bash
+# Publishes a release:  ./publish-release vX.Y.Z
+# The tag is the version: there is nothing else to set. This checks that everything is committed
+# and that the tag is new and above the latest release, runs the quick tests, pushes the current
+# branch, then creates and pushes the tag. On GitHub, the tag runs .github/workflows/on-release.yml:
+# every test again, then the release with BTVG-MLKEM-vX.Y.Z.zip, the content of published/.
+set -e
+cd "$(dirname "$0")"
+release_tags() { grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -u -V; }
+if [ $# -ne 1 ] || ! [[ $1 =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    sed -n 2,6p "$0" >&2
+    echo "Latest release tag here: $(git tag --list | release_tags | tail -1)" >&2
+    exit 1
+fi
+TAG=$1
+if [ -n "$(git status --porcelain --untracked-files=no)" ] || [ -n "$(git ls-files --others --exclude-standard published)" ]; then
+    echo "uncommitted changes: commit them first" >&2
+    exit 1
+fi
+BRANCH=$(git symbolic-ref --quiet --short HEAD) || { echo "detached HEAD: check out a branch" >&2; exit 1; }
+remote=$(git ls-remote --tags --refs origin) || { echo "cannot list the tags of origin" >&2; exit 1; }
+tags=$( (git tag --list; echo "$remote" | sed 's#.*refs/tags/##') | release_tags)
+if echo "$tags" | grep -qxF "$TAG"; then
+    echo "tag $TAG exists: a version is never reused" >&2
+    exit 1
+fi
+latest=$(echo "$tags" | tail -1)
+if [ -n "$latest" ] && [ "$(printf '%s\n' "$latest" "$TAG" | sort -V | tail -1)" != "$TAG" ]; then
+    echo "$TAG is not above the latest release $latest" >&2
+    exit 1
+fi
+./testit --quick
+git push origin "$BRANCH"
+git tag --annotate "$TAG" --message "BTVG-MLKEM $TAG"
+if ! git push origin "refs/tags/$TAG"; then
+    git tag --delete "$TAG" > /dev/null
+    echo "push of $TAG failed: tag removed here, nothing published" >&2
+    exit 1
+fi
+url=$(git remote get-url origin | sed -E 's#^git@github\.com:#https://github.com/#; s#\.git$##')
+echo "$TAG pushed: GitHub now tests it and creates the release, see $url/actions"

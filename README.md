@@ -162,7 +162,7 @@ The published sets are in `published/`. Generating them again, or rarer ones, ta
 
 `./testit` runs every test in about 3 minutes, including a short search with the `test` profile. `./testit --quick` takes seconds.
 
-To release, update `VERSION`, commit, and run `./release-check`: it refuses uncommitted changes and a version already tagged, then runs every test. Pushing the tag `v<VERSION>` runs [on-release.yml](.github/workflows/on-release.yml) on GitHub: `./init` and `./testit` on a fresh machine, then `./build-release`, which zips the content of `published/` into `BTVG-MLKEM-v<VERSION>.zip`, attached to a new GitHub release.
+To release, commit everything and run `./publish-release vX.Y.Z`. The tag is the version, there is nothing else to set. The script refuses uncommitted changes and a tag which exists or is not above the latest one, runs the quick tests, pushes the current branch, then creates and pushes the tag. On GitHub, the tag runs [on-release.yml](.github/workflows/on-release.yml): `./init` and `./testit` on a fresh machine, then `./build-release`, which zips the content of `published/` into `BTVG-MLKEM-vX.Y.Z.zip`, attached to a new GitHub release.
 
 ## How to use the test vectors
 

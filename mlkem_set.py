@@ -5,6 +5,7 @@ See SPEC.md sections 4, 5 and 7.
 import ast
 import hashlib
 import os
+import subprocess
 
 import mlkem_count
 import mlkem_fips203
@@ -22,8 +23,14 @@ class SetError(Exception):
 
 
 def version():
-    with open(os.path.join(HERE, 'VERSION')) as f:
-        return f.read().strip()
+    """Version of the generator, from the git release tags (SPEC.md section 8): 1.2.3 on the commit
+    tagged v1.2.3, 1.2.3-4-gabcdef0 four commits after it, -dirty appended for uncommitted changes."""
+    try:
+        out = subprocess.run(['git', 'describe', '--tags', '--match', 'v[0-9]*', '--dirty'], cwd=HERE,
+                             capture_output=True, text=True, check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError) as ex:
+        raise SetError(f'no version: git describe finds no release tag ({ex})')
+    return out[1:]
 
 
 def flip(c, reject_bit):

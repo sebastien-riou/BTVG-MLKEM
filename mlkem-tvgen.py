@@ -66,11 +66,15 @@ def generate(paths, profile, seed, outdir):
             print(f'ML-KEM-{pset}: the best case and the worst case of tier 1 are required, search further')
             status = 1
             continue
-        version = mlkem_set.version()
-        rec = mlkem_set.build(pset, seed, profile, sel['cases'], sel['searched'], version)
+        rec = mlkem_set.build(pset, seed, profile, sel['cases'], sel['searched'], None)
         existing = os.path.join(outdir, rec['name'] + '.py')
         if os.path.exists(existing):  # files state the version which first produced the set
             rec['version'] = mlkem_set.read_record(existing)['version']
+        else:
+            rec['version'] = mlkem_set.version()
+            if rec['version'].endswith('-dirty') and os.path.abspath(outdir) == PUBLISHED:
+                raise mlkem_set.SetError(f"ML-KEM-{pset}: new set, but the generator has uncommitted changes "
+                                         f"({rec['version']}): commit them first, its files state the version")
         print(f"ML-KEM-{pset}: set {rec['name']}")
         write_files(outdir, rec)
     return status

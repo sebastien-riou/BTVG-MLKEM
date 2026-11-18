@@ -129,8 +129,8 @@ A chunk counts as searched only when its `C` line is present and consistent with
 
 A published set is recorded in `published/<name>.py`, a file of Python literals only, read with `ast.literal_eval`. The inputs of the regeneration are the derivation label, the seed, the parameter set, the rules version and, for each test case, its role, tier and index. The record also holds every derived value and annotation, which the generator recomputes and compares.
 
-`./generate --check` rebuilds every published file from the records and compares them byte for byte, without any search.
+`./generate --check` rebuilds every published file from the records, checks that the test cases follow the rules and compares every file byte for byte, without any search.
 
 ## 8. Version
 
-The file `VERSION` holds the version of the generator, `x.y.z`. Each generated file states the version which first produced its set; a later version must reproduce it byte for byte. A version is never reused: a release is tagged `v<version>`, and `./release-check` refuses to run when that tag exists or when the working tree has uncommitted changes.
+A release is a git tag `vx.y.z`, made by `./publish-release`; a version is never reused. The version of the generator is given by `git describe`: `x.y.z` on the commit tagged `vx.y.z`, `x.y.z-n-ghash` n commits after it. Each generated file states the version which first produced its set; a later version must reproduce it byte for byte. The generator refuses to write a new set in `published/` with uncommitted changes, so that this version identifies its code.

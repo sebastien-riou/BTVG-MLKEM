@@ -1,19 +1,15 @@
 #!/bin/bash
 # Builds the release package BTVG-MLKEM-TAG.zip: the content of published/, committed.
-#   ./build-release TAG    TAG must be v followed by the content of VERSION (v0.0.2 for 0.0.2)
-# It does not test: run ./testit first. On a pushed tag, .github/workflows/on-release.yml does both.
+#   ./build-release TAG
+# It does not test: run ./testit first. On a tag pushed by ./publish-release, the workflow
+# .github/workflows/on-release.yml does both.
 set -e
 cd "$(dirname "$0")"
 if [ $# -ne 1 ]; then
-    sed -n 2,4p "$0" >&2
+    sed -n 2,5p "$0" >&2
     exit 1
 fi
 TAG=$1
-VERSION=$(cat VERSION)
-if [ "$TAG" != "v$VERSION" ]; then
-    echo "tag $TAG does not match VERSION $VERSION" >&2
-    exit 1
-fi
 if ! ls published/mlkem*.py > /dev/null 2>&1; then
     echo "no set in published/" >&2
     exit 1
