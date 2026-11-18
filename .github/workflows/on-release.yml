@@ -1,0 +1,43 @@
+name: on-release
+
+# On a pushed tag vX.Y.Z: sets up the repository as ./init does, runs every test (the published
+# sets are recomputed with both ML-KEM implementations, checked against their rules and read back
+# in every format), zips the content of published/ and creates the GitHub release with it.
+# The tag must match the file VERSION.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Setup
+        run: |
+          python -m pip install pipenv
+          ./init
+
+      - name: Verify the test vectors
+        run: ./testit
+
+      - name: Package
+        run: ./build-release "$TAG"
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$TAG" "BTVG-MLKEM-$TAG.zip" --verify-tag --title "BTVG-MLKEM $TAG" --generate-notes

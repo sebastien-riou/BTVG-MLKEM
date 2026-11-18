@@ -123,7 +123,7 @@ The average measured with them is close to the true one, since the spread is sma
 
 ## Published sets
 
-In [published/](published/), made with the rules v1 and the seed `0000000000000000` from a search of 2^31 keys per parameter set:
+In [published/](published/), and as `BTVG-MLKEM-vX.Y.Z.zip` in each [release](https://github.com/sebastien-riou/BTVG-MLKEM/releases), made with the rules v1 and the seed `0000000000000000` from a search of 2^31 keys per parameter set:
 
 | Set | Best case | Worst case, tier 1 | Average set |
 |-----|-----------|--------------------|-------------|
@@ -158,9 +158,11 @@ The published sets are in `published/`. Generating them again, or rarer ones, ta
 3. **Verify**: `.venv/bin/python mlkem-verify.py results/` recounts in Python, independently of the search tool, every chunk up to the last selected key, and requires the same counts and hits as the logs. A key missed by the search tool would otherwise make the selection wrong.
 4. **Generate**: `./generate` selects the test cases from `results/` and writes every format in `published/`. It refuses to run if a known answer test fails, and stops for a parameter set whose best case or worst case of tier 1 is not found yet.
 
-`./generate --check` rebuilds every published file from its record and compares it byte for byte: no search is needed to check a published set.
+`./generate --check` rebuilds every published file from its record, checks that its test cases follow the rules and compares every file byte for byte: no search is needed to check a published set. Only that the best and worst cases are the first ones of the stream needs the logs, through `mlkem-verify.py`.
 
-`./testit` runs every test in about 3 minutes, including a short search with the `test` profile. `./testit --quick` takes seconds. `./release-check` runs before a release: it refuses uncommitted changes and a version already tagged.
+`./testit` runs every test in about 3 minutes, including a short search with the `test` profile. `./testit --quick` takes seconds.
+
+To release, update `VERSION`, commit, and run `./release-check`: it refuses uncommitted changes and a version already tagged, then runs every test. Pushing the tag `v<VERSION>` runs [on-release.yml](.github/workflows/on-release.yml) on GitHub: `./init` and `./testit` on a fresh machine, then `./build-release`, which zips the content of `published/` into `BTVG-MLKEM-v<VERSION>.zip`, attached to a new GitHub release.
 
 ## How to use the test vectors
 

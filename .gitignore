@@ -6,6 +6,7 @@ git_ignore
 __pycache__/
 results/
 mlkem-search
+BTVG-MLKEM-*.zip
 
 # Prerequisites
 *.d

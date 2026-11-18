@@ -5,8 +5,9 @@
         select the test cases from the logs (SPEC.md section 3), compute and cross-check them, and
         write every format of each set in DIR (default: published/, test profile: required).
     mlkem-tvgen.py --check [DIR]
-        rebuild every record of DIR (default: published/) from its inputs, and compare every file
-        byte for byte. No search is needed.
+        rebuild every record of DIR (default: published/) from its inputs, check that its test cases
+        follow the rules, and compare every file byte for byte. No search is needed; that the best
+        and worst cases are the first ones in the stream needs the logs (mlkem-verify.py).
     mlkem-tvgen.py --render RECORD... --write DIR
         rebuild the given records and write every file of their sets in DIR.
 
@@ -89,7 +90,7 @@ def check(outdir):
             print(f'{path}: FAILED, fields differ when recomputed: {diff}')
             status = 1
             continue
-        bad = []
+        bad = mlkem_select.check_record(rebuilt)
         for name, text in mlkem_formats.files(rebuilt).items():
             p = os.path.join(outdir, name)
             if not os.path.exists(p):
@@ -102,7 +103,7 @@ def check(outdir):
             print(f"{rec['name']}: FAILED: {', '.join(bad)}")
             status = 1
         else:
-            print(f"{rec['name']}: every file reproduced")
+            print(f"{rec['name']}: rules followed, every file reproduced")
     return status
 
 

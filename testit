@@ -42,6 +42,7 @@ fi
 echo "files identical to the golden ones"
 $PY test/test_formats.py "$TMP/out"
 $PY mlkem-tvgen.py --check "$TMP/out"
+$PY test/test_check.py
 for rec in test/golden/mlkem*.py; do
     $PY example.py "$rec"
 done
@@ -50,5 +51,8 @@ if ls published/mlkem*.py > /dev/null 2>&1; then
     echo "== published sets"
     $PY mlkem-tvgen.py --check
     $PY test/test_formats.py published
+    for rec in published/mlkem*.py; do
+        $PY example.py "$rec"
+    done
 fi
 echo "== all tests passed"

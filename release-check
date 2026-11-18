@@ -14,4 +14,6 @@ fi
 ./testit
 echo
 echo "Ready to release version $VERSION (tags known here: $(git tag | tr '\n' ' '); fetch tags first if unsure):"
-echo "    git tag v$VERSION && git push origin v$VERSION"
+echo "    git push origin HEAD && git tag v$VERSION && git push origin v$VERSION"
+echo "The push of the tag makes GitHub test again and create the release with the zip of published/"
+echo "(.github/workflows/on-release.yml)."

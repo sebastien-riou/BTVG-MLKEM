@@ -71,6 +71,51 @@ def average_set(pset, seed, r):
     raise SelectionError(f'ML-KEM-{pset}: no average set below index {AVERAGE_SCAN_LIMIT}')
 
 
+def check_record(rec):
+    """Problems with the test cases of a set record (mlkem_set), as a list of strings.
+
+    Expects a record whose costs were recomputed (mlkem_set.rebuild). Checks the rules constants,
+    the order of the test cases, the cost and probability of the best and worst cases and that they
+    lie in the searched range, and recomputes the average set from index 0. That the best and worst
+    cases are the smallest such indices needs the search logs: mlkem-verify.py.
+    """
+    pset, cases = rec['pset'], rec['cases']
+    r = rules(pset, rec['rules'])
+    problems = []
+    if rec['rules_constants'] != {key: r[key] for key in ('best', 'tiers', 'average')}:
+        problems.append('rules constants differ from the rules')
+    t_best = r['best']['t']
+    expected = [('best', 0, lambda c: c['e'] == 0 and c['t'] <= t_best, r['best']['prob'], True)]
+    for tier, rule in enumerate(r['tiers'], 1):
+        expected.append((f'tier {tier}', tier, lambda c, x=rule['x']: c['e'] == x, rule['prob'], tier == 1))
+    if set(rec['searched']) != {name for name, *_ in expected}:
+        problems.append(f"searched ranges {sorted(rec['searched'])} do not match the rules")
+        return problems
+    n = r['average']['n']
+    head, tail = cases[:-n], cases[-n:]
+    i = 0
+    for name, tier, matches, prob, required in expected:
+        c = head[i] if i < len(head) else None
+        if c is None or (c['role'], c['tier']) != (('best', 0) if tier == 0 else ('worst', tier)):
+            if required:
+                problems.append(f'{name}: missing')
+            continue
+        i += 1
+        if not matches(c):
+            problems.append(f"{name}: key {c['index']} does not meet the rule (e = {c['e']}, t = {c['t']})")
+        if c['probability'] != prob:
+            problems.append(f"{name}: probability {c['probability']}, the rule gives {prob}")
+        if not c['index'] < rec['searched'][name]:
+            problems.append(f"{name}: key {c['index']} beyond the {rec['searched'][name]} keys searched")
+    if i != len(head):
+        problems.append(f'{len(head) - i} test cases out of place before the average set')
+    average = average_set(pset, bytes.fromhex(rec['seed']), r)
+    got = [(c['role'], c['tier'], c['index'], c['e'], c['t'], tuple(c['iterations']), c['probability']) for c in tail]
+    if got != [(c['role'], c['tier'], c['index'], c['e'], c['t'], c['iterations'], c['prob']) for c in average]:
+        problems.append(f"average set: expected keys {average[0]['index']} to {average[-1]['index']}")
+    return problems
+
+
 def select(stream, profile='v1'):
     """Selection from the merged logs of one stream (mlkem_logs.Stream).
 
